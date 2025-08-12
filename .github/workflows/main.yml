@@ -21,7 +21,7 @@ jobs:
     
     
     - name: Run bandit Scan
-      run: bandit -r .
+      run: bandit -ll -ii -r .
 
     
 
