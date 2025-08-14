@@ -30,16 +30,7 @@ jobs:
        name: bandit-findings
        path: bandit-report.json
  
- name: Image Scan
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  image_scan:
+ image_scan:
     name: Build Image and run Image scan
     runs-on: ubuntu-22.04  # Pin to Jammy for Docker 20.10.x compatibility
 
@@ -47,7 +38,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      # 1. Remove preinstalled Docker & Moby to prevent downgrade issues
+      # Remove preinstalled Docker & Moby to prevent downgrade issues
       - name: Remove preinstalled Docker & Moby
         run: |
           sudo apt-get remove -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli || true
@@ -55,20 +46,20 @@ jobs:
           sudo apt-get purge -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli || true
           sudo rm -rf /var/lib/docker /var/lib/containerd
 
-      # 2. Install exact Docker version
+      # Install exact Docker version
       - name: Set up Docker 20.10.24
         uses: docker-practice/actions-setup-docker@v1
         with:
           docker_version: '20.10.24'
 
-      # 3. Verify Docker status
+      # Verify Docker status
       - name: Check Docker systemd status
         run: sudo systemctl status docker || true
 
       - name: Check Docker version
         run: docker --version
 
-      # 4. Safely show daemon.json if it exists
+      # Safely show daemon.json if it exists
       - name: Show default daemon.json
         run: |
           if [ -f /etc/docker/daemon.json ]; then
@@ -77,15 +68,16 @@ jobs:
             echo "daemon.json not found"
           fi
 
-      # 5. Build Docker image
+      # Build Docker image
       - name: Docker Build Image
         run: docker build -f Dockerfile -t myapp:latest .
 
-      # 6. Install and run Docker Scout
+      # Install and run Docker Scout
       - name: Docker Scout Scan
         run: |
           curl -fsSL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh -o install-scout.sh
           sh install-scout.sh
           docker scout quickview
           docker scout cves
+ 
  
