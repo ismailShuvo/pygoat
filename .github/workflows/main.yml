@@ -31,13 +31,13 @@ jobs:
        path: bandit-report.json
  image_scan: 
   name: Build Image and run Image scan
-  runs-on: ubuntu-22.04
+  runs-on: ubuntu-22.04  # Pin to Jammy for 20.10.x compatibility
 
   steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    # Ensure ALL Docker versions are removed before installing older version
+    # 1. Remove preinstalled Docker & Moby to prevent downgrade issues
     - name: Remove preinstalled Docker & Moby
       run: |
         sudo apt-get remove -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli
@@ -45,35 +45,39 @@ jobs:
         sudo apt-get purge -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli
         sudo rm -rf /var/lib/docker /var/lib/containerd
 
-    # Install exact Docker version
+    # 2. Install exact Docker version
     - name: Set up Docker 20.10.24
       uses: docker-practice/actions-setup-docker@v1
       with:
         docker_version: '20.10.24'
 
+    # 3. Verify installation
+    - name: Check Docker systemd status
+      run: sudo systemctl status docker || true
+
     - name: Check Docker version
       run: docker --version
 
+    # 4. Safely show daemon.json if it exists
     - name: Show default daemon.json
       run: |
         if [ -f /etc/docker/daemon.json ]; then
-          cat /etc/docker/daemon.json
+          sudo cat /etc/docker/daemon.json
         else
           echo "daemon.json not found"
         fi
 
+    # 5. Build Docker image
     - name: Docker Build Image
       run: docker build -f Dockerfile -t myapp:latest .
 
+    # 6. Install and run Docker Scout
     - name: Docker Scout Scan
       run: |
         curl -fsSL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh -o install-scout.sh
         sh install-scout.sh
         docker scout quickview
         docker scout cves
-
- 
-
 
      
 
