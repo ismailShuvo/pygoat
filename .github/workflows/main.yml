@@ -32,7 +32,7 @@ jobs:
  
  name: Image Scan
 
-  on:
+on:
   push:
     branches: [ main ]
   pull_request:
@@ -88,3 +88,4 @@ jobs:
           sh install-scout.sh
           docker scout quickview
           docker scout cves
+ 
