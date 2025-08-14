@@ -29,22 +29,23 @@ jobs:
       with:
        name: bandit-findings
        path: bandit-report.json
-
  image_scan: 
   name: Build Image and run Image scan
-  runs-on: ubuntu-22.04  # Stay pinned for package compatibility
+  runs-on: ubuntu-22.04
 
   steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    # Remove preinstalled Docker & Moby to avoid downgrade errors
-    - name: Remove preinstalled Docker
+    # Ensure ALL Docker versions are removed before installing older version
+    - name: Remove preinstalled Docker & Moby
       run: |
-        sudo apt-get remove -y docker docker-engine docker.io containerd runc moby-engine moby-cli
+        sudo apt-get remove -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli
         sudo apt-get autoremove -y
+        sudo apt-get purge -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli
+        sudo rm -rf /var/lib/docker /var/lib/containerd
 
-    # Install desired Docker version
+    # Install exact Docker version
     - name: Set up Docker 20.10.24
       uses: docker-practice/actions-setup-docker@v1
       with:
