@@ -32,15 +32,23 @@ jobs:
 
  image_scan: 
   name: Build Image and run Image scan
-  runs-on: ubuntu-22.04  # Pin version for Docker 20.10.7 support
+  runs-on: ubuntu-22.04  # Stay pinned for package compatibility
+
   steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up Docker (latest version)
+    # Remove preinstalled Docker & Moby to avoid downgrade errors
+    - name: Remove preinstalled Docker
+      run: |
+        sudo apt-get remove -y docker docker-engine docker.io containerd runc moby-engine moby-cli
+        sudo apt-get autoremove -y
+
+    # Install desired Docker version
+    - name: Set up Docker 20.10.24
       uses: docker-practice/actions-setup-docker@v1
       with:
-       docker_version: '20.10.24'
+        docker_version: '20.10.24'
 
     - name: Check Docker version
       run: docker --version
@@ -62,8 +70,8 @@ jobs:
         sh install-scout.sh
         docker scout quickview
         docker scout cves
- 
 
+ 
 
 
      
