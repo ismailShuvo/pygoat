@@ -37,10 +37,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up Docker
+    - name: Set up Docker (latest version)
       uses: docker-practice/actions-setup-docker@v1
-      with:
-        docker_version: '20.10.7'
+
 
     - name: Check Docker version
       run: docker --version
