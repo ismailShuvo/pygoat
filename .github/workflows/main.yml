@@ -3,7 +3,7 @@ name: CI
 on: [push]
 
 env:
-  DEFECTDOJO_URL: http://202.161.191.133:6069  # Forwarded URL to your local DefectDojo
+  DEFECTDOJO_URL: http://202.161.191.133:6069  # Forwarded URL
 
 jobs:
   sust_scan:
@@ -20,7 +20,7 @@ jobs:
           python-version: 3.8
 
       - name: Install Bandit
-        run: pip install bandit
+        run: pip install bandit requests jq
 
       - name: Run Bandit Scan
         run: bandit -ll -ii -r . -f json -o bandit-report.json
@@ -33,10 +33,18 @@ jobs:
           name: bandit-findings
           path: bandit-report.json
 
+      - name: Get DefectDojo API token
+        id: get_token
+        run: |
+          TOKEN=$(curl -s -X POST "${{ env.DEFECTDOJO_URL }}/api/v2/api-token-auth/" \
+            -H 'Content-Type: application/json' \
+            -d '{"username": "admin", "password": "meCrJZUaFSDhGRfEzfpKvG"}' | jq -r '.token')
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+
       - name: Upload Bandit report to DefectDojo
         run: |
           curl -X POST "${{ env.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
+            -H "Authorization: Token $TOKEN" \
             -F 'file=@bandit-report.json' \
             -F 'scan_type=Bandit Scan' \
             -F 'engagement=5' \
@@ -61,7 +69,7 @@ jobs:
       - name: Install Docker 20.10.24
         run: |
           sudo apt-get update
-          sudo apt-get install -y ca-certificates curl gnupg lsb-release
+          sudo apt-get install -y ca-certificates curl gnupg lsb-release jq
           sudo mkdir -p /etc/apt/keyrings
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
@@ -73,4 +81,38 @@ jobs:
         run: docker --version
 
       - name: Docker Build Image
-        run: docker build -f
+        run: docker build -f Dockerfile -t myapp:latest .
+
+      - name: Get DefectDojo API token for Docker Scout
+        id: get_token_scout
+        run: |
+          TOKEN=$(curl -s -X POST "${{ env.DEFECTDOJO_URL }}/api/v2/api-token-auth/" \
+            -H 'Content-Type: application/json' \
+            -d '{"username": "admin", "password": "meCrJZUaFSDhGRfEzfpKvG"}' | jq -r '.token')
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+
+      - name: Docker Scout Scan
+        uses: docker/scout-action@v1.18.2
+        with:
+          dockerhub-user: ${{ secrets.REPO_USER }}
+          dockerhub-password: ${{ secrets.REPO_PASS }}
+          command: quickview,cves
+          only-severities: critical,high
+          sarif-file: scout-report.sarif
+
+      - name: Upload Docker Scout artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-scout-findings
+          path: scout-report.sarif
+
+      - name: Upload Docker Scout report to DefectDojo
+        run: |
+          curl -X POST "${{ env.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token $TOKEN" \
+            -F 'file=@scout-report.sarif' \
+            -F 'scan_type=SARIF' \
+            -F 'engagement=5' \
+            -F 'active=true' \
+            -F 'verified=false'
