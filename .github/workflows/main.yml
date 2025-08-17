@@ -24,7 +24,7 @@ jobs:
 
       - name: Run Bandit Scan
         run: bandit -ll -ii -r . -f json -o bandit-report.json
-        continue-on-error: true  # Prevent workflow from failing if issues are found
+        continue-on-error: true
 
       - name: Upload Bandit artifact
         uses: actions/upload-artifact@v4
@@ -45,7 +45,7 @@ jobs:
 
   image_scan:
     name: Build Image and Run Image Scan
-    runs-on: ubuntu-22.04  # Pin to Jammy for Docker 20.10.x compatibility
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
@@ -73,6 +73,4 @@ jobs:
         run: docker --version
 
       - name: Docker Build Image
-        run: docker build -f Dockerfile -t myapp:latest .
-
-      - name: Docker Scout Scan
+        run: docker build -f
