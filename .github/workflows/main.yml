@@ -3,93 +3,96 @@ name: CI
 on: [push]
 
 jobs:
-
- sust_scan:
+  sust_scan:
     name: Run Bandit Scan
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.8
-    - name: Install Bandit
-      run: pip install bandit
-    
-    
-    - name: Run bandit Scan
-      run: bandit -ll -ii -r . -f json -o bandit-report.json
-    
-    - name: upload artifact
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-       name: bandit-findings
-       path: bandit-report.json
- 
- image_scan:
-  name: Build Image and run Image scan
-  runs-on: ubuntu-22.04  # Pin to Jammy for Docker 20.10.x compatibility
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
 
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Install Bandit
+        run: pip install bandit
 
-    # Remove preinstalled Docker & Moby
-    - name: Remove preinstalled Docker & Moby
-      run: |
-        sudo apt-get remove -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli || true
-        sudo apt-get autoremove -y
-        sudo apt-get purge -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli || true
-        sudo rm -rf /var/lib/docker /var/lib/containerd
+      - name: Run Bandit Scan
+        run: bandit -ll -ii -r . -f json -o bandit-report.json
 
-    # Install Docker 20.10.24 manually
-    - name: Install Docker 20.10.24
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ca-certificates curl gnupg lsb-release
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
-          | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        sudo apt-get update
-        sudo apt-get install -y docker-ce=5:20.10.24~3-0~ubuntu-jammy docker-ce-cli=5:20.10.24~3-0~ubuntu-jammy containerd.io
+      - name: Upload Bandit artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-findings
+          path: bandit-report.json
 
-    # Verify Docker status
-    - name: Check Docker systemd status
-      run: sudo systemctl status docker || true
+      - name: Upload Bandit report to DefectDojo
+        run: |
+          curl -X POST "http://192.168.101.227:8999/api/v2/import-scan/" \
+            -H "Authorization: Token 89ef49d0c85f0e338c160052ef080147a1a25ed5" \
+            -F 'file=@bandit-report.json' \
+            -F 'scan_type=Bandit Scan' \
+            -F 'engagement=1' \
+            -F 'active=true' \
+            -F 'verified=false'
 
-    - name: Check Docker version
-      run: docker --version
+  image_scan:
+    name: Build Image and Run Image Scan
+    runs-on: ubuntu-22.04  # Pin to Jammy for Docker 20.10.x compatibility
 
-    # Safely show daemon.json if it exists
-    - name: Show default daemon.json
-      run: |
-        sudo bash -c 'if [ -f /etc/docker/daemon.json ]; then cat /etc/docker/daemon.json; else echo "daemon.json not found"; fi'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    # Build Docker image
-    - name: Docker Build Image
-      run: docker build -f Dockerfile -t myapp:latest .
+      - name: Remove preinstalled Docker & Moby
+        run: |
+          sudo apt-get remove -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli || true
+          sudo apt-get autoremove -y
+          sudo apt-get purge -y docker docker-engine docker.io containerd runc moby-engine moby-cli docker-ce docker-ce-cli || true
+          sudo rm -rf /var/lib/docker /var/lib/containerd
 
-    # Install and run Docker Scout
-    - name: Docker Scout Scan
-      uses: docker/scout-action@v1.18.2
-      with:
-        dockerhub-user: ${{ secrets.REPO_USER }}
-        dockerhub-password: ${{ secrets.REPO_PASS }}
-        command: quickview,cves
-        onlyseverities: critical,high
-        sarif-file: scout-report.sarif
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: docker-scout-findings
-        path: scout-report.sarif
-        
+      - name: Install Docker 20.10.24
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates curl gnupg lsb-release
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+            | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y docker-ce=5:20.10.24~3-0~ubuntu-jammy docker-ce-cli=5:20.10.24~3-0~ubuntu-jammy containerd.io
 
- 
+      - name: Check Docker version
+        run: docker --version
+
+      - name: Docker Build Image
+        run: docker build -f Dockerfile -t myapp:latest .
+
+      - name: Docker Scout Scan
+        uses: docker/scout-action@v1.18.2
+        with:
+          dockerhub-user: ${{ secrets.REPO_USER }}
+          dockerhub-password: ${{ secrets.REPO_PASS }}
+          command: quickview,cves
+          onlyseverities: critical,high
+          sarif-file: scout-report.sarif
+
+      - name: Upload Docker Scout artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-scout-findings
+          path: scout-report.sarif
+
+      - name: Upload Docker Scout report to DefectDojo
+        run: |
+          curl -X POST "http://192.168.101.227:8999/api/v2/import-scan/" \
+            -H "Authorization: Token 89ef49d0c85f0e338c160052ef080147a1a25ed5" \
+            -F 'file=@scout-report.sarif' \
+            -F 'scan_type=SARIF' \
+            -F 'engagement=1' \
+            -F 'active=true' \
+            -F 'verified=false'
