@@ -2,6 +2,9 @@ name: CI
 
 on: [push]
 
+env:
+  DEFECTDOJO_URL: http://202.161.191.133:6069  # Forwarded URL to your local DefectDojo
+
 jobs:
   sust_scan:
     name: Run Bandit Scan
@@ -21,7 +24,8 @@ jobs:
 
       - name: Run Bandit Scan
         run: bandit -ll -ii -r . -f json -o bandit-report.json
-        continue-on-error: true
+        continue-on-error: true  # Prevent workflow from failing if issues are found
+
       - name: Upload Bandit artifact
         uses: actions/upload-artifact@v4
         if: always()
@@ -31,11 +35,11 @@ jobs:
 
       - name: Upload Bandit report to DefectDojo
         run: |
-          curl -X POST "http://202.161.191.133:6069/api/v2/import-scan/" \
-            -H "Authorization: Token 89ef49d0c85f0e338c160052ef080147a1a25ed5" \
+          curl -X POST "${{ env.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
             -F 'file=@bandit-report.json' \
             -F 'scan_type=Bandit Scan' \
-            -F 'engagement=1' \
+            -F 'engagement=5' \
             -F 'active=true' \
             -F 'verified=false'
 
@@ -72,27 +76,3 @@ jobs:
         run: docker build -f Dockerfile -t myapp:latest .
 
       - name: Docker Scout Scan
-        uses: docker/scout-action@v1.18.2
-        with:
-          dockerhub-user: ${{ secrets.REPO_USER }}
-          dockerhub-password: ${{ secrets.REPO_PASS }}
-          command: quickview,cves
-          onlyseverities: critical,high
-          sarif-file: scout-report.sarif
-
-      - name: Upload Docker Scout artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: docker-scout-findings
-          path: scout-report.sarif
-
-      - name: Upload Docker Scout report to DefectDojo
-        run: |
-          curl -X POST "http://202.161.191.133:6069/api/v2/import-scan/" \
-            -H "Authorization: Token 89ef49d0c85f0e338c160052ef080147a1a25ed5" \
-            -F 'file=@scout-report.sarif' \
-            -F 'scan_type=SARIF' \
-            -F 'engagement=1' \
-            -F 'active=true' \
-            -F 'verified=false'
