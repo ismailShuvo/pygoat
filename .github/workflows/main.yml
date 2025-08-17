@@ -47,7 +47,7 @@ jobs:
             -H "Authorization: Token $TOKEN" \
             -F 'file=@bandit-report.json' \
             -F 'scan_type=Bandit Scan' \
-            -F 'engagement=5' \
+            -F 'engagement=1' \
             -F 'active=true' \
             -F 'verified=false'
 
@@ -113,6 +113,6 @@ jobs:
             -H "Authorization: Token $TOKEN" \
             -F 'file=@scout-report.sarif' \
             -F 'scan_type=SARIF' \
-            -F 'engagement=5' \
+            -F 'engagement=1' \
             -F 'active=true' \
             -F 'verified=false'
